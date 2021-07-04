@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useContext, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import cn from "classnames";
 import GridContext from "../context/gridContext";
@@ -13,7 +7,7 @@ import { defaultSelection } from "../../constants";
 const Cell = ({ className, title, header, left, rowIdx, colIdx }) => {
   const cellRef = useRef();
 
-  const { isMouseDown, selection, onChangeSelection, onChangeCell } =
+  const { isMouseDown, onChangeSelection, onChangeCell } =
     useContext(GridContext);
 
   const onFocus = useCallback(() => {
@@ -25,13 +19,17 @@ const Cell = ({ className, title, header, left, rowIdx, colIdx }) => {
     });
   }, [colIdx, rowIdx, onChangeSelection]);
 
+  const handleMouseEnter = useCallback(
+    (e) => {
+      if (isMouseDown.current) {
+        onChangeSelection({ endRow: rowIdx, endCol: colIdx }, true);
+      }
+    },
+    [rowIdx, colIdx, onChangeSelection, isMouseDown]
+  );
+
   useEffect(() => {
     if (!header && !className.includes("cell-first-row")) {
-      const handleMouseEnter = (e) => {
-        if (isMouseDown.current) {
-          onChangeSelection({ ...selection, endRow: rowIdx, endCol: colIdx });
-        }
-      };
       cellRef.current.onmousedown = onFocus;
       cellRef.current.onmouseenter = handleMouseEnter;
     } else {
@@ -41,13 +39,13 @@ const Cell = ({ className, title, header, left, rowIdx, colIdx }) => {
     }
   }, [
     className,
-    selection,
     onFocus,
     colIdx,
     rowIdx,
     header,
     isMouseDown,
     onChangeSelection,
+    handleMouseEnter,
   ]);
 
   return (

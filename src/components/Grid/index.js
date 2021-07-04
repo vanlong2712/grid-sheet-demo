@@ -15,15 +15,15 @@ import {
   rowHeight,
 } from "../../constants";
 import { formatSelection, loadColumns, loadRows } from "../../utilities/common";
+import { useDocumentEventListener } from "../../utilities/useDocumentEventListener";
 import GridContext from "../context/gridContext";
 import Header from "../Header";
 import Row from "../Row";
 import AddMoreCounter from "../AddMoreCounter";
 import "./styles.scss";
-import { useDocumentEventListener } from "../../utilities/useDocumentEventListener";
 
 const Grid = () => {
-  const [columns, setColumns] = useState(loadColumns());
+  const [columns] = useState(loadColumns());
   const [rows, setRows] = useState(loadRows());
   const [startColIdx, setStartColIdx] = useState(limitCol);
   const [startRowIdx, setStartRowIdx] = useState(limitRow);
@@ -70,10 +70,13 @@ const Grid = () => {
       const newRows = [...rows];
       pasteData.map((pasteRowData, pasteRowIdx) => {
         pasteRowData.map((colData, colIdx) => {
+          if (!newRows[startRow + pasteRowIdx]) return null;
           newRows[startRow + pasteRowIdx][
             colKeyObj.current[startCol + colIdx]
           ] = colData;
+          return null;
         });
+        return null;
       });
       setRows([...newRows]);
     },
@@ -129,7 +132,10 @@ const Grid = () => {
       if (!isMouseDown.current || !gridRef.current) return;
       if (e.clientX >= gridRef.current.clientWidth - cellWidth / 2) {
         gridRef.current.scrollLeft = gridRef.current.scrollLeft + cellWidth;
-      } else if (gridRef.current.scrollLeft > 0 && e.clientX <= cellWidth / 2) {
+      } else if (
+        gridRef.current.scrollLeft > 0 &&
+        e.clientX <= cellWidth * 1.2
+      ) {
         gridRef.current.scrollLeft = gridRef.current.scrollLeft - cellWidth;
       }
       if (e.clientY >= gridRef.current.clientHeight - rowHeight / 2) {
@@ -162,7 +168,7 @@ const Grid = () => {
 
   useEffect(() => {
     setStartRowIdx(Math.floor(gridY / rowHeight));
-  }, [gridY]);
+  }, [gridY, startRowIdx]);
 
   const styleActiveCell = useMemo(() => {
     const { startRow, endRow, startCol, endCol } = formatSelection(selection);
@@ -174,12 +180,13 @@ const Grid = () => {
     };
   }, [selection]);
 
-  const onChangeSelection = useCallback(
-    (newSelection) => {
+  const onChangeSelection = useCallback((newSelection, isMerge = false) => {
+    if (!isMerge) {
       setSelection(newSelection);
-    },
-    [setSelection]
-  );
+    } else {
+      setSelection((prev) => ({ ...prev, ...newSelection }));
+    }
+  }, []);
 
   const addRows = useCallback(
     (number) => {
@@ -200,30 +207,44 @@ const Grid = () => {
   const width = columnNumber * cellWidth;
   const height = rows.length * rowHeight;
 
+  const gridProvider = useMemo(() => {
+    return { onChangeSelection, isMouseDown, onChangeCell };
+  }, [onChangeSelection, isMouseDown, onChangeCell]);
+
+  const memoizedRows = useMemo(() => {
+    const extend = Math.ceil(limitRow / 2);
+    const start = Math.max(0, startRowIdx - extend);
+    const end = Math.min(startRowIdx + limitRow + extend, rows.length);
+    return rows
+      .slice(start, end)
+      .map((row, idx) => (
+        <Row
+          key={row.id}
+          row={row}
+          index={start + idx}
+          columns={columns}
+          startColIdx={startColIdx}
+        />
+      ));
+  }, [rows, startRowIdx, columns, startColIdx]);
+
+  const memoizedActiveCell = useMemo(() => {
+    return (
+      selection.startRow > -1 &&
+      selection.startCol > -1 && (
+        <div className="active-cell" style={styleActiveCell} />
+      )
+    );
+  }, [selection, styleActiveCell]);
+
   return (
     <>
-      <GridContext.Provider
-        value={{ selection, onChangeSelection, isMouseDown, onChangeCell }}
-      >
+      <GridContext.Provider value={gridProvider}>
         <div id="grid-wrapper" className="grid-wrapper" ref={gridRef}>
           <div className="grid-container" style={{ width, height }}>
             <Header columns={columns} startColIdx={startColIdx} />
-            {rows.map(
-              (row, idx) =>
-                idx >= startRowIdx - limitRow &&
-                idx <= startRowIdx + limitRow && (
-                  <Row
-                    key={row.id}
-                    row={row}
-                    index={idx}
-                    columns={columns}
-                    startColIdx={startColIdx}
-                  />
-                )
-            )}
-            {selection.startRow > -1 && selection.startCol > -1 && (
-              <div className="active-cell" style={styleActiveCell} />
-            )}
+            {memoizedRows}
+            {memoizedActiveCell}
           </div>
         </div>
       </GridContext.Provider>
