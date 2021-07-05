@@ -5,12 +5,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useScroll } from "react-use";
 import {
   cellWidth,
   columnNumber,
   defaultSelection,
-  limitCol,
   limitRow,
   rowHeight,
 } from "../../constants";
@@ -25,13 +23,12 @@ import "./styles.scss";
 const Grid = () => {
   const [columns] = useState(loadColumns());
   const [rows, setRows] = useState(loadRows());
-  const [startColIdx, setStartColIdx] = useState(limitCol);
-  const [startRowIdx, setStartRowIdx] = useState(limitRow);
+  const [startColIdx, setStartColIdx] = useState(0);
+  const [startRowIdx, setStartRowIdx] = useState(0);
   const [selection, setSelection] = useState({ ...defaultSelection });
   const colKeyObj = useRef(undefined);
   const isMouseDown = useRef(false);
   const gridRef = useRef(undefined);
-  const { x: gridX, y: gridY } = useScroll(gridRef);
 
   const onCopy = useCallback(
     (e) => {
@@ -156,19 +153,18 @@ const Grid = () => {
   useDocumentEventListener("mousemove", handleDocumentMove);
 
   useEffect(() => {
+    gridRef.current.onscroll = (e) => {
+      setStartColIdx(Math.floor(e.target.scrollLeft / cellWidth));
+      setStartRowIdx(Math.floor(e.target.scrollTop / rowHeight));
+    };
+  }, []);
+
+  useEffect(() => {
     colKeyObj.current = columns.reduce((acc, cur, curIdx) => {
       acc[curIdx] = cur.key;
       return acc;
     }, {});
   }, [columns]);
-
-  useEffect(() => {
-    setStartColIdx(Math.floor(gridX / cellWidth));
-  }, [gridX]);
-
-  useEffect(() => {
-    setStartRowIdx(Math.floor(gridY / rowHeight));
-  }, [gridY, startRowIdx]);
 
   const styleActiveCell = useMemo(() => {
     const { startRow, endRow, startCol, endCol } = formatSelection(selection);
